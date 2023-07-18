@@ -1,28 +1,50 @@
-name: CI
-
+name: contracts forge - fmt -> build -> test
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
-
+    branches:
+      - "**"
 jobs:
-  test:
+  tests:
+    concurrency: ci-forge-${{ github.head_ref || github.run_id }}
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v3
-      - name: Use Node.js 18
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: "recursive"
+          fetch-depth: 1
+
+      - name: Setup node env
         uses: actions/setup-node@v3
         with:
-          node-version: 18
-          cache: "yarn"
+          node-version: ${{ matrix.node }}
+          cache: yarn
 
-      - name: Install Packages
-        run: yarn install
+      - name: Install dependencies
+        run: yarn install --immutable
 
-      - name: Run tests
-        run: yarn hardhat test
+      - name: Install foundry
+        uses: foundry-rs/foundry-toolchain@v1.0.9
+        with:
+          version: nightly
+
+      - name: Run Forge Format
+        run: |
+          forge fmt --check
+        id: fmt
+
+      - name: Run Forge build
+        run: |
+          forge compile
+        id: build
+
+      - name: Run Forge test
+        run: |
+          forge test
+        id: test
 
         env:
           PROVIDER_URL: ${{ secrets.PROVIDER_URL }}
